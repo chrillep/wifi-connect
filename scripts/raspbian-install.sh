@@ -80,16 +80,16 @@ detect_architecture() {
     _arch=$(uname -m)
 
     case "$_arch" in
-        aarch64)
+        aarch64|arm64)
             echo "aarch64-unknown-linux-gnu"
             ;;
-        armv7l)
+        armv7l|armv6l)
             echo "armv7-unknown-linux-gnueabihf"
             ;;
-        x86_64)
+        x86_64|amd64)
             echo "x86_64-unknown-linux-gnu"
             ;;
-        i686)
+        i686|i386)
             echo "i686-unknown-linux-gnu"
             ;;
         *)
@@ -184,49 +184,56 @@ confirm_installation() {
 
 install_wfc() {
     local _arch
+    local _binary_regex
+    local _ui_regex='browser_download_url": "\K.*wifi-connect-ui\.tar\.gz'
     local _binary_url
     local _ui_url
     local _wfc_version
     local _download_dir
 
+    say "Detecting architecture..."
+    
     _arch=$(detect_architecture)
-
+    
     say "Detected architecture: $_arch"
+    
+    _binary_regex="browser_download_url\": \"\\K.*${_arch}\\.tar\\.gz"
+
     say "Retrieving latest release from $RELEASE_URL..."
 
-    # Get the binary URL for the detected architecture
-    _binary_url=$(ensure curl -s "$RELEASE_URL" | grep -oP "browser_download_url\": \"\\K[^\"]*wifi-connect-$_arch\.tar\.gz")
-    
+    local _release_data
+    _release_data=$(ensure curl -s "$RELEASE_URL")
+
+    _binary_url=$(echo "$_release_data" | grep -oP "$_binary_regex" | head -n 1)
+    _ui_url=$(echo "$_release_data" | grep -oP "$_ui_regex" | head -n 1)
+
     if [ -z "$_binary_url" ]; then
-        err "Could not find wifi-connect binary for architecture: $_arch"
+        err "Could not find binary download URL for architecture: $_arch"
     fi
 
-    # Get the UI URL
-    _ui_url=$(ensure curl -s "$RELEASE_URL" | grep -oP 'browser_download_url": "\K[^"]*wifi-connect-ui\.tar\.gz')
-    
     if [ -z "$_ui_url" ]; then
-        err "Could not find wifi-connect UI package"
+        err "Could not find UI download URL"
     fi
 
-    say "Downloading and extracting $_binary_url..."
+    say "Downloading and extracting binary from $_binary_url..."
 
     _download_dir=$(ensure mktemp -d)
 
-    # Download and extract the binary
     ensure curl -Ls "$_binary_url" | tar -xz -C "$_download_dir"
 
-    ensure sudo mkdir -p "$INSTALL_BIN_DIR"
-    ensure sudo mv "$_download_dir/wifi-connect" "$INSTALL_BIN_DIR"
+    ensure sudo mv "$_download_dir/wifi-connect" $INSTALL_BIN_DIR
 
-    # Download and extract the UI
-    say "Downloading and extracting UI..."
+    say "Downloading and extracting UI from $_ui_url..."
+
     ensure curl -Ls "$_ui_url" | tar -xz -C "$_download_dir"
 
-    ensure sudo mkdir -p "$INSTALL_UI_DIR"
-    ensure sudo rm -rdf "$INSTALL_UI_DIR"
-    ensure sudo mv "$_download_dir/ui" "$INSTALL_UI_DIR"
+    ensure sudo mkdir -p "$(dirname $INSTALL_UI_DIR)"
 
-    ensure rm -rdf "$_download_dir"
+    ensure sudo rm -rf $INSTALL_UI_DIR
+
+    ensure sudo mv "$_download_dir/ui" $INSTALL_UI_DIR
+
+    ensure rm -rf "$_download_dir"
 
     _wfc_version=$(ensure wifi-connect --version)
 
