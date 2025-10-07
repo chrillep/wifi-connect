@@ -26,7 +26,68 @@ if [ $? -eq 0 ]; then
     printf 'Skipping WiFi Connect\n'
 else
     printf 'Starting WiFi Connect\n'
-    ./wifi-connect
+
+    # Start wifi-connect and capture its output
+    ./wifi-connect 2>&1 | while IFS= read -r line; do
+        echo "$line"
+
+        # Parse the "Starting HTTP server on" line to extract gateway and port
+        if echo "$line" | grep -q "Starting HTTP server on"; then
+            ADDRESS=$(echo "$line" | sed -n 's/.*Starting HTTP server on \([0-9.:]*\).*/\1/p')
+            GATEWAY=$(echo "$ADDRESS" | cut -d':' -f1)
+            LISTENING_PORT=$(echo "$ADDRESS" | cut -d':' -f2)
+
+            # Build the UI URL
+            if [ "$LISTENING_PORT" = "80" ]; then
+                UI_URL="http://${GATEWAY}"
+            else
+                UI_URL="http://${GATEWAY}:${LISTENING_PORT}"
+            fi
+
+            # Get SSID and passphrase from environment or use defaults
+            SSID="${PORTAL_SSID:-WiFi Connect}"
+            PASSPHRASE="${PORTAL_PASSPHRASE:-}"
+
+            # Display connection information
+            echo ""
+            echo "=========================================="
+            echo "WiFi Connect Portal Active"
+            echo "=========================================="
+            echo "SSID: ${SSID}"
+            if [ -n "$PASSPHRASE" ]; then
+                echo "Password: ${PASSPHRASE}"
+            else
+                echo "Password: (none - open network)"
+            fi
+            echo ""
+            echo "Connect to the WiFi network above, then"
+            echo "visit: ${UI_URL}"
+            echo "=========================================="
+
+            # Generate and display WiFi QR code if qrencode is available
+            if command -v qrencode &> /dev/null; then
+                echo ""
+                echo "Scan QR code to connect to WiFi:"
+
+                # Build WiFi QR code string
+                # Format: WIFI:T:<encryption>;S:<SSID>;P:<password>;H:<hidden>;;
+                if [ -n "$PASSPHRASE" ]; then
+                    WIFI_QR="WIFI:T:WPA;S:${SSID};P:${PASSPHRASE};;"
+                else
+                    WIFI_QR="WIFI:T:nopass;S:${SSID};;"
+                fi
+
+                qrencode -t ANSIUTF8 "${WIFI_QR}"
+                echo ""
+                echo "After connecting, open: ${UI_URL}"
+                echo ""
+            else
+                echo ""
+                echo "Install 'qrencode' to display a WiFi QR code"
+                echo ""
+            fi
+        fi
+    done
 fi
 
 # Start your application here.
