@@ -14,13 +14,13 @@ NAME='WiFi Connect Raspbian Installer'
 INSTALL_BIN_DIR="$WFC_INSTALL_ROOT/sbin"
 INSTALL_UI_DIR="$WFC_INSTALL_ROOT/share/wifi-connect/ui"
 
-RELEASE_URL="https://api.github.com/repos/$WFC_REPO/releases/45509064"
+RELEASE_URL="https://api.github.com/repos/$WFC_REPO/releases/latest"
 
 CONFIRMATION=true
 
 usage() {
     cat 1>&2 <<EOF
-$NAME 1.0.1 (2018-21-03)
+$NAME 2.0.0 (2025-10-07)
 
 USAGE:
     $SCRIPT [FLAGS]
@@ -52,6 +52,7 @@ main() {
     need_cmd apt-get
     need_cmd grep
     need_cmd mktemp
+    need_cmd uname
 
     check_os_version
 
@@ -72,6 +73,29 @@ check_os_version() {
     if [ "$_version" == "8 (jessie)" ]; then
         err "Distributions based on Debian 8 (jessie) are not supported"
     fi
+}
+
+detect_architecture() {
+    local _arch
+    _arch=$(uname -m)
+
+    case "$_arch" in
+        aarch64)
+            echo "aarch64-unknown-linux-gnu"
+            ;;
+        armv7l)
+            echo "armv7-unknown-linux-gnueabihf"
+            ;;
+        x86_64)
+            echo "x86_64-unknown-linux-gnu"
+            ;;
+        i686)
+            echo "i686-unknown-linux-gnu"
+            ;;
+        *)
+            err "Unsupported architecture: $_arch"
+            ;;
+    esac
 }
 
 activate_network_manager() {
@@ -159,27 +183,47 @@ confirm_installation() {
 }
 
 install_wfc() {
-    local _regex='browser_download_url": "\K.*rpi\.tar\.gz'
-    local _arch_url
+    local _arch
+    local _binary_url
+    local _ui_url
     local _wfc_version
     local _download_dir
 
+    _arch=$(detect_architecture)
+
+    say "Detected architecture: $_arch"
     say "Retrieving latest release from $RELEASE_URL..."
 
-    _arch_url=$(ensure curl "$RELEASE_URL" -s | grep -hoP "$_regex")
+    # Get the binary URL for the detected architecture
+    _binary_url=$(ensure curl -s "$RELEASE_URL" | grep -oP "browser_download_url\": \"\\K[^\"]*wifi-connect-$_arch\.tar\.gz")
+    
+    if [ -z "$_binary_url" ]; then
+        err "Could not find wifi-connect binary for architecture: $_arch"
+    fi
 
-    say "Downloading and extracting $_arch_url..."
+    # Get the UI URL
+    _ui_url=$(ensure curl -s "$RELEASE_URL" | grep -oP 'browser_download_url": "\K[^"]*wifi-connect-ui\.tar\.gz')
+    
+    if [ -z "$_ui_url" ]; then
+        err "Could not find wifi-connect UI package"
+    fi
+
+    say "Downloading and extracting $_binary_url..."
 
     _download_dir=$(ensure mktemp -d)
 
-    ensure curl -Ls "$_arch_url" | tar -xz -C "$_download_dir"
+    # Download and extract the binary
+    ensure curl -Ls "$_binary_url" | tar -xz -C "$_download_dir"
 
+    ensure sudo mkdir -p $INSTALL_BIN_DIR
     ensure sudo mv "$_download_dir/wifi-connect" $INSTALL_BIN_DIR
 
+    # Download and extract the UI
+    say "Downloading and extracting UI..."
+    ensure curl -Ls "$_ui_url" | tar -xz -C "$_download_dir"
+
     ensure sudo mkdir -p $INSTALL_UI_DIR
-
     ensure sudo rm -rdf $INSTALL_UI_DIR
-
     ensure sudo mv "$_download_dir/ui" $INSTALL_UI_DIR
 
     ensure rm -rdf "$_download_dir"
