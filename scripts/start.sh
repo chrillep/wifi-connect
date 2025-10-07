@@ -28,7 +28,7 @@ else
     printf 'Starting WiFi Connect\n'
 
     # Start wifi-connect and capture its output
-    ./wifi-connect 2>&1 | while IFS= read -r line; do
+    sudo wifi-connect 2>&1 | while IFS= read -r line; do
         echo "$line"
 
         # Parse the "Starting HTTP server on" line to extract gateway and port
@@ -84,6 +84,7 @@ else
             else
                 echo ""
                 echo "Install 'qrencode' to display a WiFi QR code"
+                echo "sudo apt-get update && sudo apt-get install -y qrencode"
                 echo ""
             fi
         fi
