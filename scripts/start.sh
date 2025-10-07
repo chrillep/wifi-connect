@@ -28,23 +28,23 @@ else
     printf 'Starting WiFi Connect\n'
 
     # Build command-line arguments from environment variables
-    WIFI_CONNECT_ARGS=""
+    WIFI_CONNECT_ARGS=()
 
-    [ -n "$PORTAL_SSID" ] && WIFI_CONNECT_ARGS="$WIFI_CONNECT_ARGS --portal-ssid $PORTAL_SSID"
-    [ -n "$PORTAL_PASSPHRASE" ] && WIFI_CONNECT_ARGS="$WIFI_CONNECT_ARGS --portal-passphrase $PORTAL_PASSPHRASE"
-    [ -n "$PORTAL_GATEWAY" ] && WIFI_CONNECT_ARGS="$WIFI_CONNECT_ARGS --portal-gateway $PORTAL_GATEWAY"
-    [ -n "$PORTAL_LISTENING_PORT" ] && WIFI_CONNECT_ARGS="$WIFI_CONNECT_ARGS --portal-listening-port $PORTAL_LISTENING_PORT"
-    [ -n "$PORTAL_INTERFACE" ] && WIFI_CONNECT_ARGS="$WIFI_CONNECT_ARGS --portal-interface $PORTAL_INTERFACE"
-    [ -n "$PORTAL_DHCP_RANGE" ] && WIFI_CONNECT_ARGS="$WIFI_CONNECT_ARGS --portal-dhcp-range $PORTAL_DHCP_RANGE"
-    [ -n "$ACTIVITY_TIMEOUT" ] && WIFI_CONNECT_ARGS="$WIFI_CONNECT_ARGS --activity-timeout $ACTIVITY_TIMEOUT"
-    [ -n "$UI_DIRECTORY" ] && WIFI_CONNECT_ARGS="$WIFI_CONNECT_ARGS --ui-directory $UI_DIRECTORY"
+    [ -n "$PORTAL_SSID" ] && WIFI_CONNECT_ARGS+=(--portal-ssid "$PORTAL_SSID")
+    [ -n "$PORTAL_PASSPHRASE" ] && WIFI_CONNECT_ARGS+=(--portal-passphrase "$PORTAL_PASSPHRASE")
+    [ -n "$PORTAL_GATEWAY" ] && WIFI_CONNECT_ARGS+=(--portal-gateway "$PORTAL_GATEWAY")
+    [ -n "$PORTAL_LISTENING_PORT" ] && WIFI_CONNECT_ARGS+=(--portal-listening-port "$PORTAL_LISTENING_PORT")
+    [ -n "$PORTAL_INTERFACE" ] && WIFI_CONNECT_ARGS+=(--portal-interface "$PORTAL_INTERFACE")
+    [ -n "$PORTAL_DHCP_RANGE" ] && WIFI_CONNECT_ARGS+=(--portal-dhcp-range "$PORTAL_DHCP_RANGE")
+    [ -n "$ACTIVITY_TIMEOUT" ] && WIFI_CONNECT_ARGS+=(--activity-timeout "$ACTIVITY_TIMEOUT")
+    [ -n "$UI_DIRECTORY" ] && WIFI_CONNECT_ARGS+=(--ui-directory "$UI_DIRECTORY")
 
     # Get SSID and passphrase (with defaults)
     SSID="${PORTAL_SSID:-WiFi Connect}"
     PASSPHRASE="${PORTAL_PASSPHRASE:-}"
 
     # Start wifi-connect and capture its output
-    sudo wifi-connect $WIFI_CONNECT_ARGS 2>&1 | while IFS= read -r line; do
+    sudo wifi-connect "${WIFI_CONNECT_ARGS[@]}" 2>&1 | while IFS= read -r line; do
         echo "$line"
 
         # Parse the "Starting HTTP server on" line to extract gateway and port
